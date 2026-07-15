@@ -1,0 +1,143 @@
+html,
+body,
+main {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #e8f1ea;
+  color: #213029;
+}
+
+.map-shell {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.fire-map {
+  position: absolute;
+  inset: 0;
+}
+
+.map-summary {
+  position: absolute;
+  z-index: 2;
+  top: 1rem;
+  left: 1rem;
+  display: grid;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(31, 92, 69, 0.2);
+  border-radius: 0.875rem;
+  background: #fff9ef;
+  box-shadow: 0 8px 24px rgba(18, 55, 42, 0.16);
+}
+
+.map-summary strong {
+  color: #1f5c45;
+  font-size: 1.5rem;
+}
+
+.map-summary span {
+  font-weight: 700;
+}
+
+.map-summary small {
+  margin-top: 0.25rem;
+  color: #718078;
+}
+
+.map-error {
+  position: absolute;
+  z-index: 3;
+  top: 1rem;
+  left: 50%;
+  max-width: 30rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #a83e19;
+  color: white;
+  transform: translateX(-50%);
+}
+
+.fire-details {
+  position: absolute;
+  z-index: 2;
+  top: 1rem;
+  right: 1rem;
+  width: min(22rem, calc(100% - 2rem));
+  padding: 1.25rem;
+  border: 1px solid rgba(31, 92, 69, 0.2);
+  border-radius: 1rem;
+  background: #fff9ef;
+  box-shadow: 0 12px 32px rgba(18, 55, 42, 0.2);
+}
+
+.fire-details__close {
+  float: right;
+  border: 0;
+  background: transparent;
+  color: #213029;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.fire-details__eyebrow {
+  color: #f26a2e;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fire-details h2 {
+  margin: 0.25rem 0 1rem;
+  color: #12372a;
+}
+
+.fire-details dl {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.fire-details dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #d9e4db;
+  padding-bottom: 0.5rem;
+}
+
+.fire-details dt {
+  color: #718078;
+}
+
+.fire-details dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.fire-details__source {
+  color: #1f5c45;
+  font-size: 0.8rem;
+}
+
+.fire-details__warning {
+  padding: 0.75rem;
+  border-left: 3px solid #f26a2e;
+  background: #fff0e7;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .fire-details {
+    top: auto;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+  }
+}
