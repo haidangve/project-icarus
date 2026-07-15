@@ -1,0 +1,20 @@
+{
+  "name": "project-icarus",
+  "version": "1.0.0",
+  "description": "Location-aware wildfire intelligence combining official alerts, fire conditions, air quality, smoke, weather, and safer shelter information.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },"workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "lint:web": "npm run lint --workspace=apps/web"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
