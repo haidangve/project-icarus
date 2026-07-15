@@ -46,7 +46,7 @@ fixtures/cwfis-active-fires.metadata.json
 
 ```
 
-## Findings
+## CWFIS Findings
 
 - Retrieved 171 current Ontario records.
 - All records use `Point` geometry.
@@ -58,6 +58,23 @@ fixtures/cwfis-active-fires.metadata.json
 - `national_fire_id` is the preferred cross-source identifier.
 - This source provides fire locations, not official perimeters.
 - Response is a valid GeoJSON `FeatureCollection`.
+
+## LIO Findings
+
+- Retrieved 121 in-year Ontario fire perimeters.
+- Geometry includes 82 polygons and 39 multipolygons.
+- No records are missing geometry or fire numbers.
+- `FIRENUMB` maps to the CWFIF agency ID:
+  - `COC008` → `COC_FIRE_008`
+- 43 LIO perimeters matched current CWFIF incidents.
+- Every matched perimeter has `STATUS = I`.
+- Unmatched records include 67 `F` and 11 `I` perimeters.
+- `F` represents a final perimeter.
+- `I` represents an interim perimeter.
+- CWFIF remains authoritative for active-fire status.
+- LIO supplies perimeter geometry only after an exact identifier match.
+- Final LIO perimeters must not cause inactive fires to appear active.
+- One `OFR` record and `THUMB-N512ME` are excluded from automatic matching.
 
 ## Reference
 - Fire locations use `Point` geometry.
