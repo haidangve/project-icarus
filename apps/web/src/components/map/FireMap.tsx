@@ -25,24 +25,41 @@ const EMPTY_COLLECTION: FireFeatureCollection = {
 export default function FireMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const firesRef =
+    useRef<FireFeatureCollection>(EMPTY_COLLECTION);
 
   const [fires, setFires] =
     useState<FireFeatureCollection>(EMPTY_COLLECTION);
-
   const [selectedFire, setSelectedFire] =
     useState<FireFeature | null>(null);
-
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getFires()
-      .then(setFires)
+      .then((data) => {
+        firesRef.current = data;
+        setFires(data);
+
+        const map = mapRef.current;
+
+        if (map?.isStyleLoaded()) {
+          const source = map.getSource("fires") as
+            | GeoJSONSource
+            | undefined;
+
+          source?.setData(data);
+        }
+      })
       .catch((requestError: unknown) => {
         setError(
           requestError instanceof Error
             ? requestError.message
             : "Unable to load current fires.",
         );
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, []);
 
@@ -85,7 +102,7 @@ export default function FireMap() {
     map.on("load", () => {
       map.addSource("fires", {
         type: "geojson",
-        data: EMPTY_COLLECTION,
+        data: firesRef.current,
       });
 
       map.addLayer({
@@ -124,7 +141,15 @@ export default function FireMap() {
         source: "fires",
         filter: ["==", ["geometry-type"], "Point"],
         paint: {
-          "circle-radius": 6,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            4,
+            5,
+            10,
+            10,
+          ],
           "circle-color": [
             "match",
             ["get", "stage_of_control_status"],
@@ -140,39 +165,44 @@ export default function FireMap() {
           "circle-stroke-width": 1.5,
         },
       });
-    });
 
-    const selectFire = (
-      event: maplibregl.MapLayerMouseEvent,
-    ) => {
-      const nationalFireId =
-        event.features?.[0]?.properties?.national_fire_id;
+      const selectFire = (
+        event: maplibregl.MapLayerMouseEvent,
+      ) => {
+        const nationalFireId =
+          event.features?.[0]?.properties?.national_fire_id;
 
-      const fire = fires.features.find(
-        (candidate) =>
-          candidate.properties.national_fire_id === nationalFireId,
-      );
+        if (!nationalFireId) {
+          return;
+        }
 
-      if (fire) {
-        setSelectedFire(fire);
-      }
-    };
+        const fire = firesRef.current.features.find(
+          (candidate) =>
+            candidate.properties.national_fire_id ===
+            nationalFireId,
+        );
 
-    const interactiveLayers = [
-      "fire-perimeter-fill",
-      "fire-perimeter-outline",
-      "fire-points",
-    ];
+        if (fire) {
+          setSelectedFire(fire);
+        }
+      };
 
-    interactiveLayers.forEach((layer) => {
-      map.on("click", layer, selectFire);
+      const interactiveLayers = [
+        "fire-perimeter-fill",
+        "fire-perimeter-outline",
+        "fire-points",
+      ];
 
-      map.on("mouseenter", layer, () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
+      interactiveLayers.forEach((layer) => {
+        map.on("click", layer, selectFire);
 
-      map.on("mouseleave", layer, () => {
-        map.getCanvas().style.cursor = "";
+        map.on("mouseenter", layer, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", layer, () => {
+          map.getCanvas().style.cursor = "";
+        });
       });
     });
 
@@ -182,30 +212,21 @@ export default function FireMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, [fires.features]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-
-    if (!map || !map.isStyleLoaded()) {
-      return;
-    }
-
-    const source = map.getSource("fires") as
-      | GeoJSONSource
-      | undefined;
-
-    source?.setData(fires);
-  }, [fires]);
+  }, []);
 
   return (
     <section className="map-shell">
       <div className="map-summary">
-        <strong>{fires.feature_count}</strong>
+        <strong>
+          {loading ? "—" : fires.feature_count}
+        </strong>
+
         <span>active Ontario fires</span>
 
         <small>
-          {fires.perimeter_count} official perimeters
+          {loading
+            ? "Loading official data…"
+            : `${fires.perimeter_count} official perimeters`}
         </small>
       </div>
 
@@ -223,6 +244,7 @@ export default function FireMap() {
 
       <FireDetails
         fire={selectedFire}
+        generatedAt={fires.generated_at}
         onClose={() => setSelectedFire(null)}
       />
     </section>

@@ -2,6 +2,7 @@ import type { FireFeature } from "@/types/fire";
 
 interface FireDetailsProps {
   fire: FireFeature | null;
+  generatedAt: string;
   onClose: () => void;
 }
 
@@ -11,8 +12,37 @@ const STATUS_LABELS: Record<string, string> = {
   UC: "Under control",
 };
 
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return "Unavailable";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unavailable";
+  }
+
+  return date.toLocaleString("en-CA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZoneName: "short",
+  });
+}
+
+function formatSize(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "Unavailable";
+  }
+
+  return `${value.toLocaleString("en-CA", {
+    maximumFractionDigits: 1,
+  })} ha`;
+}
+
 export default function FireDetails({
   fire,
+  generatedAt,
   onClose,
 }: FireDetailsProps) {
   if (!fire) {
@@ -20,10 +50,12 @@ export default function FireDetails({
   }
 
   const properties = fire.properties;
+  const statusCode =
+    properties.stage_of_control_status ?? "";
 
   const status =
-    STATUS_LABELS[properties.stage_of_control_status ?? ""] ??
-    properties.stage_of_control_status ??
+    STATUS_LABELS[statusCode] ??
+    statusCode ??
     "Status unavailable";
 
   const size =
@@ -31,8 +63,12 @@ export default function FireDetails({
     properties.fire_size;
 
   return (
-    <aside className="fire-details">
+    <aside
+      className="fire-details"
+      aria-labelledby="fire-details-title"
+    >
       <button
+        type="button"
         className="fire-details__close"
         onClick={onClose}
         aria-label="Close fire details"
@@ -40,53 +76,85 @@ export default function FireDetails({
         ×
       </button>
 
+      <div className="fire-details__official">
+        Official incident information
+      </div>
+
       <p className="fire-details__eyebrow">
         {properties.agency_fire_id}
       </p>
 
-      <h2>{properties.region_code} wildfire</h2>
+      <h2 id="fire-details-title">
+        {properties.region_code
+          ? `${properties.region_code} wildfire`
+          : "Ontario wildfire"}
+      </h2>
 
-      <dl>
+      <div
+        className={`fire-details__status fire-details__status--${statusCode.toLowerCase()}`}
+      >
+        {status}
+        {statusCode && <span>{statusCode}</span>}
+      </div>
+
+      <dl className="fire-details__facts">
         <div>
-          <dt>Status</dt>
-          <dd>{status}</dd>
+          <dt>National fire ID</dt>
+          <dd>{properties.national_fire_id}</dd>
         </div>
 
         <div>
           <dt>Reported size</dt>
-          <dd>
-            {size !== null
-              ? `${size.toLocaleString()} ha`
-              : "Unavailable"}
-          </dd>
+          <dd>{formatSize(size)}</dd>
         </div>
 
         <div>
-          <dt>Geometry</dt>
+          <dt>Map representation</dt>
           <dd>
             {properties.has_official_perimeter
-              ? "Official LIO perimeter"
-              : "Reported CWFIF point"}
+              ? "Official Ontario perimeter"
+              : "Reported incident point"}
           </dd>
         </div>
 
         <div>
-          <dt>Status time</dt>
+          <dt>Official status time</dt>
+          <dd>{formatDate(properties.status_date)}</dd>
+        </div>
+
+        <div>
+          <dt>Situation report time</dt>
           <dd>
-            {properties.status_date
-              ? new Date(properties.status_date).toLocaleString()
-              : "Unavailable"}
+            {formatDate(properties.situation_report_date)}
           </dd>
+        </div>
+
+        <div>
+          <dt>Data retrieved</dt>
+          <dd>{formatDate(generatedAt)}</dd>
         </div>
       </dl>
 
-      <p className="fire-details__source">
-        Incident: CWFIF · Geometry: {properties.geometry_source}
-      </p>
+      <div className="fire-details__sources">
+        <strong>Sources</strong>
+
+        <p>
+          Incident information: Canadian Wildland Fire
+          Information Framework
+        </p>
+
+        <p>
+          Geometry:{" "}
+          {properties.has_official_perimeter
+            ? "Land Information Ontario"
+            : "CWFIF reported location"}
+        </p>
+      </div>
 
       <p className="fire-details__warning">
-        Situational awareness only. Follow instructions from official
-        emergency authorities.
+        Situational awareness only. Conditions may change
+        quickly. Follow evacuation orders and instructions from
+        official emergency authorities.
       </p>
     </aside>
   );
