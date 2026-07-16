@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.alerts import router as alerts_router
 from app.routers.fires import router as fires_router
 from app.routers.health import router as health_router
 
@@ -26,6 +27,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(fires_router)
+app.include_router(alerts_router)
 
 
 @app.get("/", tags=["system"])

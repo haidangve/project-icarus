@@ -24,8 +24,11 @@ function formatDate(value: string | null | undefined) {
   }
 
   return date.toLocaleString("en-CA", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
     timeZoneName: "short",
   });
 }

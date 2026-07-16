@@ -6,14 +6,20 @@ import maplibregl, {
   Map as MapLibreMap,
 } from "maplibre-gl";
 
+import AlertDetails from "@/components/alerts/AlertDetails";
 import FireDetails from "@/components/fires/FireDetails";
+import { getAlerts } from "@/lib/api/alerts";
 import { getFires } from "@/lib/api/fires";
+import type {
+  AlertFeature,
+  AlertFeatureCollection,
+} from "@/types/alert";
 import type {
   FireFeature,
   FireFeatureCollection,
 } from "@/types/fire";
 
-const EMPTY_COLLECTION: FireFeatureCollection = {
+const EMPTY_FIRES: FireFeatureCollection = {
   type: "FeatureCollection",
   features: [],
   generated_at: "",
@@ -22,18 +28,53 @@ const EMPTY_COLLECTION: FireFeatureCollection = {
   point_only_count: 0,
 };
 
+const EMPTY_ALERTS: AlertFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+  source: "",
+  source_url: "",
+  retrieved_at: "",
+  feature_count: 0,
+  official_wording_preserved: true,
+};
+
+function createMapSafeAlerts(
+  alerts: AlertFeatureCollection,
+): AlertFeatureCollection {
+  return {
+    ...alerts,
+    features: alerts.features.map((feature) => {
+      const { id: _mapLibreUnsafeId, ...safeFeature } =
+        feature;
+
+      return safeFeature;
+    }),
+  };
+}
+
 export default function FireMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+
   const firesRef =
-    useRef<FireFeatureCollection>(EMPTY_COLLECTION);
+    useRef<FireFeatureCollection>(EMPTY_FIRES);
+  const alertsRef =
+    useRef<AlertFeatureCollection>(EMPTY_ALERTS);
 
   const [fires, setFires] =
-    useState<FireFeatureCollection>(EMPTY_COLLECTION);
+    useState<FireFeatureCollection>(EMPTY_FIRES);
+  const [alerts, setAlerts] =
+    useState<AlertFeatureCollection>(EMPTY_ALERTS);
+
   const [selectedFire, setSelectedFire] =
     useState<FireFeature | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedAlert, setSelectedAlert] =
+    useState<AlertFeature | null>(null);
+
+  const [fireError, setFireError] =
+    useState<string | null>(null);
+  const [alertError, setAlertError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     getFires()
@@ -41,25 +82,37 @@ export default function FireMap() {
         firesRef.current = data;
         setFires(data);
 
-        const map = mapRef.current;
+        const source = mapRef.current?.getSource(
+          "fires",
+        ) as GeoJSONSource | undefined;
 
-        if (map?.isStyleLoaded()) {
-          const source = map.getSource("fires") as
-            | GeoJSONSource
-            | undefined;
-
-          source?.setData(data);
-        }
+        source?.setData(data);
       })
-      .catch((requestError: unknown) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
+      .catch((error: unknown) => {
+        setFireError(
+          error instanceof Error
+            ? error.message
             : "Unable to load current fires.",
         );
+      });
+
+    getAlerts()
+      .then((data) => {
+        alertsRef.current = data;
+        setAlerts(data);
+
+        const source = mapRef.current?.getSource(
+          "official-alerts",
+        ) as GeoJSONSource | undefined;
+
+        source?.setData(createMapSafeAlerts(data));
       })
-      .finally(() => {
-        setLoading(false);
+      .catch((error: unknown) => {
+        setAlertError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load official alerts.",
+        );
       });
   }, []);
 
@@ -100,6 +153,52 @@ export default function FireMap() {
     );
 
     map.on("load", () => {
+      map.addSource("official-alerts", {
+        type: "geojson",
+        data: createMapSafeAlerts(alertsRef.current),
+      });
+
+      map.addLayer({
+        id: "official-alert-fill",
+        type: "fill",
+        source: "official-alerts",
+        paint: {
+          "fill-color": [
+            "match",
+            ["downcase", ["coalesce", ["get", "risk_colour_en"], ""]],
+            "red",
+            "#c9302c",
+            "orange",
+            "#f26a2e",
+            "yellow",
+            "#f2c94c",
+            "#76867c",
+          ],
+          "fill-opacity": 0.18,
+        },
+      });
+
+      map.addLayer({
+        id: "official-alert-outline",
+        type: "line",
+        source: "official-alerts",
+        paint: {
+          "line-color": [
+            "match",
+            ["downcase", ["coalesce", ["get", "risk_colour_en"], ""]],
+            "red",
+            "#9e1f1b",
+            "orange",
+            "#c94d19",
+            "yellow",
+            "#a98200",
+            "#59675f",
+          ],
+          "line-width": 1.5,
+          "line-dasharray": [3, 2],
+        },
+      });
+
       map.addSource("fires", {
         type: "geojson",
         data: firesRef.current,
@@ -116,7 +215,7 @@ export default function FireMap() {
         ],
         paint: {
           "fill-color": "#f26a2e",
-          "fill-opacity": 0.28,
+          "fill-opacity": 0.35,
         },
       });
 
@@ -131,7 +230,7 @@ export default function FireMap() {
         ],
         paint: {
           "line-color": "#a83e19",
-          "line-width": 2,
+          "line-width": 2.5,
         },
       });
 
@@ -166,43 +265,77 @@ export default function FireMap() {
         },
       });
 
-      const selectFire = (
-        event: maplibregl.MapLayerMouseEvent,
-      ) => {
-        const nationalFireId =
-          event.features?.[0]?.properties?.national_fire_id;
-
-        if (!nationalFireId) {
-          return;
-        }
-
-        const fire = firesRef.current.features.find(
-          (candidate) =>
-            candidate.properties.national_fire_id ===
-            nationalFireId,
-        );
-
-        if (fire) {
-          setSelectedFire(fire);
-        }
-      };
-
       const interactiveLayers = [
-        "fire-perimeter-fill",
-        "fire-perimeter-outline",
         "fire-points",
+        "fire-perimeter-outline",
+        "fire-perimeter-fill",
+        "official-alert-outline",
+        "official-alert-fill",
       ];
-
-      interactiveLayers.forEach((layer) => {
-        map.on("click", layer, selectFire);
-
-        map.on("mouseenter", layer, () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-
-        map.on("mouseleave", layer, () => {
-          map.getCanvas().style.cursor = "";
-        });
+      
+      map.on("click", (event) => {
+        const renderedFeatures = map.queryRenderedFeatures(
+          event.point,
+          {
+            layers: interactiveLayers,
+          },
+        );
+      
+        const fireMapFeature = renderedFeatures.find(
+          (feature) =>
+            feature.layer.id === "fire-points" ||
+            feature.layer.id === "fire-perimeter-outline" ||
+            feature.layer.id === "fire-perimeter-fill",
+        );
+      
+        if (fireMapFeature) {
+          const nationalFireId =
+            fireMapFeature.properties?.national_fire_id;
+      
+          const fire = firesRef.current.features.find(
+            (candidate) =>
+              candidate.properties.national_fire_id ===
+              nationalFireId,
+          );
+      
+          if (fire) {
+            setSelectedFire(fire);
+            setSelectedAlert(null);
+            return;
+          }
+        }
+      
+        const alertMapFeature = renderedFeatures.find(
+          (feature) =>
+            feature.layer.id === "official-alert-fill" ||
+            feature.layer.id === "official-alert-outline",
+        );
+      
+        if (alertMapFeature) {
+          const alertId = alertMapFeature.properties?.id;
+      
+          const alert = alertsRef.current.features.find(
+            (candidate) =>
+              candidate.properties.id === alertId,
+          );
+      
+          if (alert) {
+            setSelectedAlert(alert);
+            setSelectedFire(null);
+          }
+        }
+      });
+      
+      map.on("mousemove", (event) => {
+        const renderedFeatures = map.queryRenderedFeatures(
+          event.point,
+          {
+            layers: interactiveLayers,
+          },
+        );
+      
+        map.getCanvas().style.cursor =
+          renderedFeatures.length > 0 ? "pointer" : "";
       });
     });
 
@@ -217,35 +350,40 @@ export default function FireMap() {
   return (
     <section className="map-shell">
       <div className="map-summary">
-        <strong>
-          {loading ? "—" : fires.feature_count}
-        </strong>
-
+        <strong>{fires.feature_count || "—"}</strong>
         <span>active Ontario fires</span>
 
         <small>
-          {loading
-            ? "Loading official data…"
-            : `${fires.perimeter_count} official perimeters`}
+          {fires.perimeter_count} official perimeters
+        </small>
+
+        <small>
+          {alerts.feature_count} official alert regions
         </small>
       </div>
 
-      {error && (
+      {(fireError || alertError) && (
         <div className="map-error" role="alert">
-          {error}
+          {fireError || alertError}
         </div>
       )}
 
       <div
         ref={containerRef}
         className="fire-map"
-        aria-label="Map of active Ontario wildfires"
+        aria-label="Map of Ontario wildfires and official weather alerts"
       />
 
       <FireDetails
         fire={selectedFire}
         generatedAt={fires.generated_at}
         onClose={() => setSelectedFire(null)}
+      />
+
+      <AlertDetails
+        alert={selectedAlert}
+        retrievedAt={alerts.retrieved_at}
+        onClose={() => setSelectedAlert(null)}
       />
     </section>
   );

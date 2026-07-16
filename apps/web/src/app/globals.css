@@ -141,3 +141,19 @@ body {
     width: auto;
   }
 }
+
+.fire-details__status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fire-details__status span {
+  display: inline-flex;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
